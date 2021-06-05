@@ -1,0 +1,22 @@
+[package]
+name = "codera1d-client"
+version = "1.1.0"
+authors = ["Sam Mauldin <sam@mauldin.me>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+iced = { version = "0.3.0", features = ["debug", "tokio"] }
+iced_futures = { version = "0.3.0", features = ["tokio"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"]}
+reqwest = { version = "0.11.2", features = ["json"] }
+chrono = { version = "0.4.19", features = ["serde"] }
+anyhow = "1.0.38"
+inputbot = "0.5.0"
+lazy_static = "1.4.0"
+obfstr = "0.3.0"
+if_chain = "1.0.1"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
