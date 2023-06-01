@@ -4,12 +4,13 @@
 use anyhow::Result;
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use iced::{
-    button::{self, Button},
-    pick_list::{self, PickList},
-    text_input::{self, TextInput},
-    time, Align, Application, Clipboard, Column, Command, Container, Element, Length, Row,
-    Settings, Subscription, Text,
+    time,
+    widget::{
+        button::Button, container::Container, pick_list, text_input::TextInput, Column, Row, Text,
+    },
+    Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
+use iced_style::Theme;
 use if_chain::if_chain;
 use inputbot::KeybdKey;
 use lazy_static::lazy_static;
@@ -20,7 +21,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 mod keybind;
-mod style;
 
 lazy_static! {
     static ref KEYBOARD_MUTEX: Mutex<()> = Mutex::new(());
@@ -30,6 +30,7 @@ const ENDPOINT: &'static str = env!("CODERA1D_ENDPOINT");
 const API_KEY: &'static str = env!("CODERA1D_API_KEY");
 
 pub fn main() -> iced::Result {
+    println!("hi");
     let mut settings = Settings::default();
     settings.window.size = (400, 150);
     settings.window.always_on_top = true;
@@ -63,12 +64,8 @@ struct CodeRaid {
     current_raid: Option<String>,
     raids: HashMap<String, PartialRaid>,
     code_reservations: HashMap<String, Vec<CodeReservation>>,
-    raid_list: pick_list::State<String>,
     last_codes: Vec<String>,
     create_raid_name: String,
-    create_raid_input: text_input::State,
-    create_raid_button: button::State,
-    delete_raid_button: button::State,
     codes_tried: i32,
 }
 
@@ -89,6 +86,7 @@ impl Application for CodeRaid {
     type Executor = iced::executor::Default;
     type Message = Message;
     type Flags = ();
+    type Theme = Theme;
 
     fn new(_flags: ()) -> (CodeRaid, Command<Message>) {
         let mut headers = header::HeaderMap::new();
@@ -108,16 +106,16 @@ impl Application for CodeRaid {
                 current_raid: Default::default(),
                 raids: Default::default(),
                 code_reservations: Default::default(),
-                raid_list: Default::default(),
                 last_codes: Default::default(),
                 create_raid_name: Default::default(),
-                create_raid_input: Default::default(),
-                create_raid_button: Default::default(),
-                delete_raid_button: Default::default(),
                 codes_tried: Default::default(),
             },
             Command::perform(CodeRaid::fetch_raids(client_ref), Message::RaidsUpdated),
         )
+    }
+
+    fn theme(&self) -> Self::Theme {
+        iced::Theme::Dark
     }
 
     fn title(&self) -> String {
@@ -130,7 +128,7 @@ impl Application for CodeRaid {
         )
     }
 
-    fn update(&mut self, message: Message, _: &mut Clipboard) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Command<Message> {
         self.cleanup_state();
 
         let command = match message {
@@ -271,7 +269,7 @@ impl Application for CodeRaid {
         ])
     }
 
-    fn view(&mut self) -> Element<Message> {
+    fn view(&self) -> Element<Message> {
         let mut raid_options = self
             .raids
             .keys()
@@ -282,37 +280,29 @@ impl Application for CodeRaid {
         raid_options.sort();
 
         let mut pick_row = Row::new().spacing(20).push(
-            PickList::new(
-                &mut self.raid_list,
-                raid_options,
-                self.current_raid.clone(),
-                |selected_raid| {
-                    if selected_raid == "" {
-                        Message::SelectRaid(None)
-                    } else {
-                        Message::SelectRaid(Some(selected_raid))
-                    }
-                },
-            )
-            .width(Length::Units(320))
-            .style(style::PickList),
+            pick_list(raid_options, self.current_raid.clone(), |selected_raid| {
+                if selected_raid == "" {
+                    Message::SelectRaid(None)
+                } else {
+                    Message::SelectRaid(Some(selected_raid))
+                }
+            })
+            .width(Length::Fixed(320.0)),
         );
 
         if self.current_raid.is_some() {
             pick_row = pick_row.push(
                 Button::new(
-                    &mut self.delete_raid_button,
-                    Text::new("-").horizontal_alignment(iced::HorizontalAlignment::Center),
+                    Text::new("-").horizontal_alignment(iced::alignment::Horizontal::Center),
                 )
-                .style(style::Clear)
-                .width(Length::Units(20))
+                .width(Length::Fixed(20.0))
                 .on_press(Message::DeleteRaid),
             );
         }
 
         let mut content = Column::new()
             .spacing(20)
-            .align_items(Align::Start)
+            .align_items(Alignment::Start)
             .push(pick_row);
 
         let raids = &self.raids;
@@ -345,24 +335,18 @@ impl Application for CodeRaid {
                 Row::new()
                     .spacing(20)
                     .push(
-                        TextInput::new(
-                            &mut self.create_raid_input,
-                            "Raid Name",
-                            &self.create_raid_name,
-                            Message::CreateRaidInputChanged,
-                        )
-                        .width(Length::Units(310))
-                        .padding(5)
-                        .style(style::TextInput),
+                        TextInput::new("Raid Name", &self.create_raid_name)
+                            .on_input(Message::CreateRaidInputChanged)
+                            .width(Length::Fixed(310.0))
+                            .padding(5),
                     )
                     .push(
                         Button::new(
-                            &mut self.create_raid_button,
-                            Text::new("+").horizontal_alignment(iced::HorizontalAlignment::Center),
+                            Text::new("+")
+                                .horizontal_alignment(iced::alignment::Horizontal::Center),
                         )
                         .on_press(Message::CreateRaid)
-                        .style(style::Button)
-                        .width(Length::Units(20)),
+                        .width(Length::Fixed(20.0)),
                     ),
             )
         }
@@ -374,10 +358,9 @@ impl Application for CodeRaid {
         Container::new(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(Align::Start)
-            .align_y(Align::Start)
+            .align_x(iced::alignment::Horizontal::Left)
+            .align_y(iced::alignment::Vertical::Top)
             .padding(20)
-            .style(style::Container)
             .into()
     }
 }
